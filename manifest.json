@@ -1,0 +1,21 @@
+{
+  "name": "Table Tennis Score Tracker",
+  "short_name": "Ping Pong",
+  "description": "A web app to track table tennis match scores",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#f3f4f6",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

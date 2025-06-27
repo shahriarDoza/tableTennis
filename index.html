@@ -1,0 +1,249 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Table Tennis Score Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- PWA Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icon.png">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      touch-action: manipulation;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    button {
+      -webkit-tap-highlight-color: transparent;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
+  <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+    <h1 class="text-2xl font-bold text-center mb-4">Table Tennis Score Tracker</h1>
+
+    <!-- Set Selection and Player Names -->
+    <div id="setSelection" class="mb-6">
+      <h2 class="text-lg font-semibold mb-2">Choose Match Type</h2>
+      <div class="mb-4">
+        <label for="player1Name" class="block text-sm font-medium text-gray-700">Player 1 Name</label>
+        <input id="player1Name" type="text" class="mt-1 p-2 border rounded w-full" placeholder="Player 1" value="Player 1">
+      </div>
+      <div class="mb-4">
+        <label for="player2Name" class="block text-sm font-medium text-gray-700">Player 2 Name</label>
+        <input id="player2Name" type="text" class="mt-1 p-2 border rounded w-full" placeholder="Player 2" value="Player 2">
+      </div>
+      <button onclick="startMatch(3)" class="bg-blue-500 text-white px-4 py-2 rounded mr-2 hover:bg-blue-600">3 Sets</button>
+      <button onclick="startMatch(5)" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">5 Sets</button>
+    </div>
+
+    <!-- Game Interface -->
+    <div id="gameInterface" class="hidden">
+      <div class="flex justify-between mb-4">
+        <div class="text-center">
+          <h2 id="player1DisplayName" class="text-lg font-semibold">Player 1</h2>
+          <p id="player1Score" class="text-4xl font-bold">0</p>
+          <p id="player1Sets" class="text-sm">Sets: 0</p>
+        </div>
+        <div class="text-center">
+          <h2 id="player2DisplayName" class="text-lg font-semibold">Player 2</h2>
+          <p id="player2Score" class="text-4xl font-bold">0</p>
+          <p id="player2Sets" class="text-sm">Sets: 0</p>
+        </div>
+      </div>
+
+      <div class="text-center mb-4">
+        <p id="currentSet" class="text-lg">Set 1 of 3</p>
+        <p id="gameStatus" class="text-sm text-gray-600"></p>
+      </div>
+
+      <div class="flex justify-between mb-4">
+        <button id="player1Button" onclick="addPoint(1)" class="bg-green-500 text-white px-6 py-3 rounded hover:bg-green-600">+1 Player 1</button>
+        <button id="player2Button" onclick="addPoint(2)" class="bg-green-500 text-white px-6 py-3 rounded hover:bg-green-600">+1 Player 2</button>
+      </div>
+
+      <div class="flex justify-center mb-4">
+        <button onclick="undoPoint()" class="bg-yellow-500 text-white px-4 py-2 rounded mr-2 hover:bg-yellow-600">Undo</button>
+        <button onclick="resetGame()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Reset Game</button>
+      </div>
+
+      <div id="matchResult" class="text-center hidden">
+        <p id="winnerText" class="text-xl font-bold mb-2"></p>
+        <button onclick="newMatch()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">New Match</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let player1Score = 0;
+    let player2Score = 0;
+    let player1Sets = 0;
+    let player2Sets = 0;
+    let currentSet = 1;
+    let totalSets = 0;
+    let maxSets = 0;
+    let pointHistory = [];
+    let player1Name = 'Player 1';
+    let player2Name = 'Player 2';
+
+    function startMatch(sets) {
+      player1Name = document.getElementById('player1Name').value || 'Player 1';
+      player2Name = document.getElementById('player2Name').value || 'Player 2';
+      maxSets = sets;
+      totalSets = Math.ceil(sets / 2);
+      document.getElementById('setSelection').classList.add('hidden');
+      document.getElementById('gameInterface').classList.remove('hidden');
+      updateDisplay();
+    }
+
+    function addPoint(player) {
+      pointHistory.push({ player1Score, player2Score });
+      if (player === 1) {
+        player1Score++;
+      } else {
+        player2Score++;
+      }
+      checkGameEnd();
+      updateDisplay();
+    }
+
+    function undoPoint() {
+      if (pointHistory.length > 0) {
+        const lastState = pointHistory.pop();
+        player1Score = lastState.player1Score;
+        player2Score = lastState.player2Score;
+      }
+      updateDisplay();
+    }
+
+    function checkGameEnd() {
+      if (player1Score >= 21 && player1Score - player2Score >= 2) {
+        player1Sets++;
+        endGame();
+      } else if (player2Score >= 21 && player2Score - player1Score >= 2) {
+        player2Sets++;
+        endGame();
+      }
+    }
+
+    function endGame() {
+      if (player1Sets >= totalSets) {
+        endMatch(player1Name);
+      } else if (player2Sets >= totalSets) {
+        endMatch(player2Name);
+      } else {
+        resetScores();
+        currentSet++;
+      }
+    }
+
+    function endMatch(winner) {
+      document.getElementById('winnerText').textContent = `${winner} wins the match!`;
+      document.getElementById('matchResult').classList.remove('hidden');
+      disableButtons();
+    }
+
+    function resetScores() {
+      player1Score = 0;
+      player2Score = 0;
+      pointHistory = [];
+    }
+
+    function resetGame() {
+      player1Score = 0;
+      player2Score = 0;
+      player1Sets = 0;
+      player2Sets = 0;
+      currentSet = 1;
+      pointHistory = [];
+      document.getElementById('matchResult').classList.add('hidden');
+      enableButtons();
+      updateDisplay();
+    }
+
+    function newMatch() {
+      resetGame();
+      document.getElementById('gameInterface').classList.add('hidden');
+      document.getElementById('setSelection').classList.remove('hidden');
+    }
+
+    function updateDisplay() {
+      document.getElementById('player1Score').textContent = player1Score;
+      document.getElementById('player2Score').textContent = player2Score;
+      document.getElementById('player1Sets').textContent = `Sets: ${player1Sets}`;
+      document.getElementById('player2Sets').textContent = `Sets: ${player2Sets}`;
+      document.getElementById('currentSet').textContent = `Set ${currentSet} of ${maxSets}`;
+      document.getElementById('gameStatus').textContent =
+        player1Score >= 20 && player2Score >= 20
+          ? 'Deuce - 2 point lead needed'
+          : '';
+      document.getElementById('player1DisplayName').textContent = player1Name;
+      document.getElementById('player2DisplayName').textContent = player2Name;
+      document.getElementById('player1Button').textContent = `+1 ${player1Name}`;
+      document.getElementById('player2Button').textContent = `+1 ${player2Name}`;
+    }
+
+    function disableButtons() {
+      document.querySelectorAll('button').forEach(btn => btn.disabled = true);
+      document.querySelector('button[onclick="newMatch()"]').disabled = false;
+    }
+
+    function enableButtons() {
+      document.querySelectorAll('button').forEach(btn => btn.disabled = false);
+    }
+
+    // Register service worker for offline support
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+          .then(registration => console.log('Service Worker registered'))
+          .catch(error => console.log('Service Worker registration failed:', error));
+      });
+    }
+  </script>
+</body>
+</html>
