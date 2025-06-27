@@ -49,7 +49,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#ffffff">
   <link rel="manifest" href="/manifest.json">
-  <link rel="apple-touch-icon" href="/icon.png">
+  <link rel="apple-touch-icon" href="./icon.png">
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -77,8 +77,15 @@
         <label for="player2Name" class="block text-sm font-medium text-gray-700">Player 2 Name</label>
         <input id="player2Name" type="text" class="mt-1 p-2 border rounded w-full" placeholder="Player 2" value="Player 2">
       </div>
-      <button onclick="startMatch(3)" class="bg-blue-500 text-white px-4 py-2 rounded mr-2 hover:bg-blue-600">3 Sets</button>
-      <button onclick="startMatch(5)" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">5 Sets</button>
+      <div class="flex justify-between mb-4">
+        <button onclick="startMatch(3)" class="bg-blue-500 text-white px-4 py-2 rounded mr-2 hover:bg-blue-600">3 Sets</button>
+        <button onclick="startMatch(5)" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">5 Sets</button>
+      </div>
+      <!-- Session History -->
+      <div id="historySection" class="mt-4">
+        <h2 class="text-lg font-semibold mb-2">Session History</h2>
+        <ul id="matchHistory" class="text-sm text-gray-700"></ul>
+      </div>
     </div>
 
     <!-- Game Interface -->
@@ -108,7 +115,8 @@
 
       <div class="flex justify-center mb-4">
         <button onclick="undoPoint()" class="bg-yellow-500 text-white px-4 py-2 rounded mr-2 hover:bg-yellow-600">Undo</button>
-        <button onclick="resetGame()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Reset Game</button>
+        <button onclick="resetGame()" class="bg-red-500 text-white px-4 py-2 rounded mr-2 hover:bg-red-600">Reset Game</button>
+        <button onclick="changeNames()" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">Change Players</button>
       </div>
 
       <div id="matchResult" class="text-center hidden">
@@ -129,6 +137,7 @@
     let pointHistory = [];
     let player1Name = 'Player 1';
     let player2Name = 'Player 2';
+    let matchHistory = [];
 
     function startMatch(sets) {
       player1Name = document.getElementById('player1Name').value || 'Player 1';
@@ -138,6 +147,13 @@
       document.getElementById('setSelection').classList.add('hidden');
       document.getElementById('gameInterface').classList.remove('hidden');
       updateDisplay();
+    }
+
+    function changeNames() {
+      document.getElementById('player1Name').value = player1Name;
+      document.getElementById('player2Name').value = player2Name;
+      document.getElementById('gameInterface').classList.add('hidden');
+      document.getElementById('setSelection').classList.remove('hidden');
     }
 
     function addPoint(player) {
@@ -182,9 +198,18 @@
     }
 
     function endMatch(winner) {
+      matchHistory.push({
+        player1Name,
+        player2Name,
+        player1Sets,
+        player2Sets,
+        finalScore: `${player1Score}-${player2Score}`,
+        winner
+      });
       document.getElementById('winnerText').textContent = `${winner} wins the match!`;
       document.getElementById('matchResult').classList.remove('hidden');
       disableButtons();
+      updateHistory();
     }
 
     function resetScores() {
@@ -209,6 +234,7 @@
       resetGame();
       document.getElementById('gameInterface').classList.add('hidden');
       document.getElementById('setSelection').classList.remove('hidden');
+      updateHistory();
     }
 
     function updateDisplay() {
@@ -225,6 +251,16 @@
       document.getElementById('player2DisplayName').textContent = player2Name;
       document.getElementById('player1Button').textContent = `+1 ${player1Name}`;
       document.getElementById('player2Button').textContent = `+1 ${player2Name}`;
+    }
+
+    function updateHistory() {
+      const historyList = document.getElementById('matchHistory');
+      historyList.innerHTML = '';
+      matchHistory.forEach((match, index) => {
+        const li = document.createElement('li');
+        li.textContent = `Match ${index + 1}: ${match.player1Name} vs ${match.player2Name}, Score: ${match.finalScore}, Sets: ${match.player1Sets}-${match.player2Sets}, Winner: ${match.winner}`;
+        historyList.appendChild(li);
+      });
     }
 
     function disableButtons() {

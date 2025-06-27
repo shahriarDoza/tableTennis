@@ -2,7 +2,7 @@ const CACHE_NAME = 'table-tennis-score-tracker-v1';
 const urlsToCache = [
   '/',
   '/index.html',
-  '/icon.png',
+  './icon.png',
   'https://cdn.tailwindcss.com'
 ];
 
