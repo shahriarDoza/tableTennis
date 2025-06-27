@@ -94,17 +94,20 @@
         <div class="text-center">
           <h2 id="player1DisplayName" class="text-lg font-semibold">Player 1</h2>
           <p id="player1Score" class="text-4xl font-bold">0</p>
+          <p id="player1Games" class="text-sm">Games: 0</p>
           <p id="player1Sets" class="text-sm">Sets: 0</p>
         </div>
         <div class="text-center">
           <h2 id="player2DisplayName" class="text-lg font-semibold">Player 2</h2>
           <p id="player2Score" class="text-4xl font-bold">0</p>
+          <p id="player2Games" class="text-sm">Games: 0</p>
           <p id="player2Sets" class="text-sm">Sets: 0</p>
         </div>
       </div>
 
       <div class="text-center mb-4">
         <p id="currentSet" class="text-lg">Set 1 of 3</p>
+        <p id="currentGame" class="text-lg">Game 1 of 5</p>
         <p id="gameStatus" class="text-sm text-gray-600"></p>
       </div>
 
@@ -129,15 +132,22 @@
   <script>
     let player1Score = 0;
     let player2Score = 0;
+    let player1Games = 0;
+    let player2Games = 0;
     let player1Sets = 0;
     let player2Sets = 0;
+    let currentGame = 1;
     let currentSet = 1;
     let totalSets = 0;
     let maxSets = 0;
     let pointHistory = [];
+    let gameHistory = [];
+    let setHistory = [];
     let player1Name = 'Player 1';
     let player2Name = 'Player 2';
     let matchHistory = [];
+    const maxGames = 5;
+    const gamesToWinSet = 3;
 
     function startMatch(sets) {
       player1Name = document.getElementById('player1Name').value || 'Player 1';
@@ -178,108 +188,91 @@
 
     function checkGameEnd() {
       if (player1Score >= 21 && player1Score - player2Score >= 2) {
-        player1Sets++;
+        player1Games++;
+        gameHistory.push({
+          set: currentSet,
+          game: currentGame,
+          score: `${player1Score}-${player2Score}`,
+          winner: player1Name
+        });
         endGame();
       } else if (player2Score >= 21 && player2Score - player1Score >= 2) {
-        player2Sets++;
+        player2Games++;
+        gameHistory.push({
+          set: currentSet,
+          game: currentGame,
+          score: `${player1Score}-${player2Score}`,
+          winner: player2Name
+        });
         endGame();
       }
     }
 
     function endGame() {
+      if (player1Games >= gamesToWinSet) {
+        player1Sets++;
+        setHistory.push({
+          set: currentSet,
+          player1Games,
+          player2Games,
+          winner: player1Name
+        });
+        endSet();
+      } else if (player2Games >= gamesToWinSet) {
+        player2Sets++;
+        setHistory.push({
+          set: currentSet,
+          player1Games,
+          player2Games,
+          winner: player2Name
+        });
+        endSet();
+      } else {
+        resetScores();
+        currentGame++;
+      }
+    }
+
+    function endSet() {
       if (player1Sets >= totalSets) {
         endMatch(player1Name);
       } else if (player2Sets >= totalSets) {
         endMatch(player2Name);
-      } else {
-        resetScores();
-        currentSet++;
-      }
-    }
+browser window, ensuring all game and set details are preserved until a page refresh.
 
-    function endMatch(winner) {
-      matchHistory.push({
-        player1Name,
-        player2Name,
-        player1Sets,
-        player2Sets,
-        finalScore: `${player1Score}-${player2Score}`,
-        winner
-      });
-      document.getElementById('winnerText').textContent = `${winner} wins the match!`;
-      document.getElementById('matchResult').classList.remove('hidden');
-      disableButtons();
-      updateHistory();
-    }
+### Required Files:
+- **`index.html`**: Updated as above to track and display detailed game and set history.
+- **`manifest.json`**: Unchanged, references `./icon.png`.
+- **`service-worker.js`**: Unchanged, caches `./icon.png` for offline use.
+- **`icon.png`**: A 512x512 PNG image in the same folder (e.g., a table tennis paddle).
 
-    function resetScores() {
-      player1Score = 0;
-      player2Score = 0;
-      pointHistory = [];
-    }
+### Hosting and iPhone Setup:
+Follow the previous instructions to host on GitHub Pages and add to the iPhone home screen:
+1. **Host on GitHub Pages**:
+   - Upload `index.html`, `manifest.json`, `service-worker.js`, and `icon.png` to a repository (e.g., `<your-username>.github.io`).
+   - Enable GitHub Pages in the repository settings.
+   - Access at `https://<your-username>.github.io`.
+2. **Add to iPhone Home Screen**:
+   - Open the URL in Safari on your iPhone.
+   - Tap Share > “Add to Home Screen” > Name it (e.g., “Ping Pong”) > “Add.”
 
-    function resetGame() {
-      player1Score = 0;
-      player2Score = 0;
-      player1Sets = 0;
-      player2Sets = 0;
-      currentSet = 1;
-      pointHistory = [];
-      document.getElementById('matchResult').classList.add('hidden');
-      enableButtons();
-      updateDisplay();
-    }
+### New Functionality:
+- **Detailed Session History**:
+   - Records every game’s score and winner within each set.
+   - Records each set’s game wins and winner.
+   - History displays match details, including all sets and games, in a nested format (e.g., Match 1 > Set 1 > Game 1, Game 2, etc.).
+   - Persists until the webpage is refreshed (session-based, stored in `matchHistory`).
+- **Example History Output**:
+   - “Match 1: Alice vs Bob, Sets: 2-1, Winner: Alice”
+   - “Set 1: Alice 3-1 Bob”
+   - “Game 1: 21-15, Winner: Alice”
+   - “Game 2: 18-21, Winner: Bob”
+   - “Game 3: 21-19, Winner: Alice”
+   - “Game 4: 21-17, Winner: Alice”
 
-    function newMatch() {
-      resetGame();
-      document.getElementById('gameInterface').classList.add('hidden');
-      document.getElementById('setSelection').classList.remove('hidden');
-      updateHistory();
-    }
+### Notes:
+- **Offline Support**: The PWA remains functional offline after initial load, caching `index.html`, `./icon.png`, and Tailwind CSS.
+- **History Persistence**: History is stored in memory (`matchHistory`) and resets on page refresh. For persistent storage, localStorage or a backend would be needed, but this keeps the app simple and client-side.
+- **Testing**: Test locally with `python3 -m http.server 8000` and access via `http://<your-ip>:8000` on your iPhone (same Wi-Fi).
 
-    function updateDisplay() {
-      document.getElementById('player1Score').textContent = player1Score;
-      document.getElementById('player2Score').textContent = player2Score;
-      document.getElementById('player1Sets').textContent = `Sets: ${player1Sets}`;
-      document.getElementById('player2Sets').textContent = `Sets: ${player2Sets}`;
-      document.getElementById('currentSet').textContent = `Set ${currentSet} of ${maxSets}`;
-      document.getElementById('gameStatus').textContent =
-        player1Score >= 20 && player2Score >= 20
-          ? 'Deuce - 2 point lead needed'
-          : '';
-      document.getElementById('player1DisplayName').textContent = player1Name;
-      document.getElementById('player2DisplayName').textContent = player2Name;
-      document.getElementById('player1Button').textContent = `+1 ${player1Name}`;
-      document.getElementById('player2Button').textContent = `+1 ${player2Name}`;
-    }
-
-    function updateHistory() {
-      const historyList = document.getElementById('matchHistory');
-      historyList.innerHTML = '';
-      matchHistory.forEach((match, index) => {
-        const li = document.createElement('li');
-        li.textContent = `Match ${index + 1}: ${match.player1Name} vs ${match.player2Name}, Score: ${match.finalScore}, Sets: ${match.player1Sets}-${match.player2Sets}, Winner: ${match.winner}`;
-        historyList.appendChild(li);
-      });
-    }
-
-    function disableButtons() {
-      document.querySelectorAll('button').forEach(btn => btn.disabled = true);
-      document.querySelector('button[onclick="newMatch()"]').disabled = false;
-    }
-
-    function enableButtons() {
-      document.querySelectorAll('button').forEach(btn => btn.disabled = false);
-    }
-
-    // Register service worker for offline support
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js')
-          .then(registration => console.log('Service Worker registered'))
-          .catch(error => console.log('Service Worker registration failed:', error));
-      });
-    }
-  </script>
-</body>
-</html>
+Save the updated files, host them, and the app will now maintain a detailed session history of all games and sets until the page is refreshed, while retaining all previous functionality (best-of-5 games per set, player name changes, etc.). Let me know if you need further assistance!
